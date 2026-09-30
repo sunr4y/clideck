@@ -398,6 +398,13 @@ class AgentSession extends EventEmitter {
       if (usage !== undefined) this.setContextUsage(usage);
       return;
     }
+    if (route === 'update') {
+      if (this.turnOpen) {
+        const text = String(payload.text || '').slice(0, 65536);
+        if (text && text !== this.latestUpdate) this.emitAgentUpdate(text);
+      }
+      return;
+    }
     if (route === 'start') {
       if (turnId) this.activeHookTurn = turnId;
       this.beginTurn();

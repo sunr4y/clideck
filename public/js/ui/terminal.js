@@ -191,8 +191,11 @@ function focusSession(id) {
   // re-assert; the engine dedupes against the pty's real size, so a re-assertion that changes nothing costs
   // nothing. Observer ticks after that still dedupe, which is the whole point of the cache.
   sentDims.delete(id);
-  if (s.outputBuf) writeTerminal(s.outputBuf, true);   // a focus rewrite is replay even when its buffer contains once-live output
-  requestAnimationFrame(() => { fit(true); if (!renaming) term.focus(); updateScrollBtn(); probeVisiblePaths(); });   // don't steal focus from an inline rename
+  const refit = () => requestAnimationFrame(() => { fit(true); if (!renaming) term.focus(); updateScrollBtn(); probeVisiblePaths(); });   // don't steal focus from an inline rename
+  // Xterm parses writes asynchronously. Resizing before a full-screen app's replay is parsed can leave its
+  // cursor-addressed UI partially painted until the app redraws on the next input.
+  if (s.outputBuf) writeTerminal(s.outputBuf, true, refit);   // a focus rewrite is replay even when its buffer contains once-live output
+  else refit();
 
 }
 
