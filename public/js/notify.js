@@ -5,6 +5,7 @@
 import { store } from "./store.js";
 import { updateConfig } from "./ws.js";
 import { basename, firstLine, shortId } from "./util.js";
+import { toast } from "./ui/toast.js";
 
 export const SOUND_OPTS = [
   { id: "default-beep", label: "Default" }, { id: "soft-beep", label: "Soft" },
@@ -49,6 +50,7 @@ function onIdle(id, workMs) {
   if (!s || s.muted) return;
   const backgrounded = docHidden() || store.activeId !== id;
   if (prefs.sound && backgrounded && workMs >= (prefs.minWorkSec || 0) * 1000) play(prefs.pick);
+  if (backgrounded) fireInAppNotification(s);
   if (prefs.browser && docHidden() && canNotify() && Notification.permission === "granted") fireNotification(s);
 }
 
@@ -69,6 +71,20 @@ function fireNotification(s) {
     const n = new Notification(title, { body: preview ? "Now idle · " + preview : "Now idle", tag: s.id });   // tag dedupes per session
     n.onclick = () => { try { window.focus(); } catch {} store.select(s.id); n.close(); };
   } catch {}
+}
+
+function fireInAppNotification(s) {
+  const name = s.name || shortId(s.id);
+  const group = basename(s.cwd);
+  const title = group && group !== "/" ? group + ": " + name : name;
+  const preview = firstLine(s.latestAgent);
+  toast.success({
+    id: "agent-idle:" + s.id,
+    title,
+    body: preview ? "Finished · " + preview : "Agent finished and is ready.",
+    duration: 0,
+    action: { label: "Open agent", onClick: () => { try { window.focus(); } catch {} store.select(s.id); } },
+  });
 }
 
 // ── settings API ──────────────────────────────────────────────────────────────
