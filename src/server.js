@@ -50,7 +50,7 @@ const { createAgentSessionGuide } = require('./agent-session-guide');
 const { PluginHttp } = require('./plugin-http');
 const { MAX_BACKUP_BYTES, createBackup, previewBackup, restoreBackup } = require('./backup');
 
-const HOOK_ROUTE_RE = /^\/hooks\/([^/]+)\/(start|stop|idle|session-start|session-end|menu|context)$/;
+const HOOK_ROUTE_RE = /^\/hooks\/([^/]+)\/(start|stop|idle|session-start|session-end|menu|context|update)$/;
 const MAX_SHOW_REQUEST_BYTES = MAX_CONTENT_BYTES * 6 + 16 * 1024;
 
 function readJson(req, limit = 100 * 1024) {

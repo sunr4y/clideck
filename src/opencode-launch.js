@@ -8,6 +8,8 @@ const env = globalThis.process?.env || {};
 const endpoint = (route) => new URL(\`/hooks/\${env.CLIDECK_NEXT_SESSION_ID}/\${route}\`, env.CLIDECK_URL || \`http://127.0.0.1:\${env.CLIDECK_NEXT_PORT}\`).href;
 let primarySession = '';
 let latestText = '';
+let lastPostedText = '';
+let previewTimer = null;
 let currentModel = null;
 let providerClient = null;
 let providersPromise = null;
@@ -20,6 +22,20 @@ async function post(route, payload = {}) {
       body: JSON.stringify(payload),
     });
   } catch {}
+}
+
+async function postPreview() {
+  if (!latestText || latestText === lastPostedText) return;
+  lastPostedText = latestText;
+  await post('update', { text: latestText });
+}
+
+function queuePreview() {
+  clearTimeout(previewTimer);
+  previewTimer = setTimeout(() => {
+    previewTimer = null;
+    postPreview();
+  }, 100);
 }
 
 async function contextWindow() {
@@ -49,7 +65,12 @@ export const CliDeckNextBridge = async ({ client }) => {
     }
     if (!primarySession || sessionID !== primarySession) return;
 
-    if (event.type === 'message.updated' && properties.info?.role === 'user') latestText = '';
+    if (event.type === 'message.updated' && properties.info?.role === 'user') {
+      clearTimeout(previewTimer);
+      previewTimer = null;
+      latestText = '';
+      lastPostedText = '';
+    }
     if (event.type === 'message.updated' && properties.info?.role === 'assistant') {
       currentModel = {
         providerID: properties.info.providerID || '',
@@ -58,7 +79,10 @@ export const CliDeckNextBridge = async ({ client }) => {
     }
     if (event.type === 'message.part.updated') {
       const part = properties.part || {};
-      if (part.type === 'text' && part.time) latestText = part.text || '';
+      if (part.type === 'text' && part.time) {
+        latestText = part.text || '';
+        queuePreview();
+      }
       if (part.type === 'step-finish') {
         const windowTokens = await contextWindow();
         const tokens = part.tokens || {};
@@ -81,6 +105,9 @@ export const CliDeckNextBridge = async ({ client }) => {
     }
     if ((event.type === 'session.status' && properties.status?.type === 'idle')
       || event.type === 'session.idle') {
+      clearTimeout(previewTimer);
+      previewTimer = null;
+      await postPreview();
       await post('stop', {
         session_id: primarySession,
         last_assistant_message: latestText,
